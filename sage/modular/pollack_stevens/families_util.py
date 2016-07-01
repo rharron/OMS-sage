@@ -11,9 +11,18 @@ from sage.matrix.constructor import Matrix
 def ps_normalize(f, p, p_prec):
     """reduces all of the coefficients of the power series modulo p^N"""
     v = Sequence(f)
-    v = [v[a] % (p ** p_prec) for a in range(len(v))]
+    vnew = []
+    modulus = p ** p_prec
+    for a in range(len(v)):
+        val = v[a].valuation(p)
+        if val < 0:
+            withval = p ** (-val)
+            vnew.append(((v[a] * withval) % (modulus * withval)) / withval)
+        else:
+            vnew.append(v[a] % modulus)
+    #v = [v[a] % modulus for a in range(len(v))]
     S = f.parent()
-    return S(v)
+    return S(vnew)
 
 #@cached_function
 #def logp_fcn(p, p_prec, a):
@@ -32,18 +41,58 @@ def ps_normalize(f, p, p_prec):
 #    a = a / R.teichmuller(a)
 #    return sum([((-1) ** (m - 1)) * ((a - 1) ** m) / m for m in range(1, p_prec)])
 
+#Should we add a 'y-prec' parameter?
+def logp(p, p_prec):
+    """
+    Returns the (integral) power series for log_p(1+z) as a polynomial in y over the rationals of degree < p_prec.
+    
+    EXAMPLES::
+        
+        sage: from sage.modular.pollack_stevens.families_util import logp
+        sage: logp(11, 5)
+        -1/4*y^4 + 1/3*y^3 - 1/2*y^2 + y
+    """
+    SS = PolynomialRing(QQ, 'y')
+    y = SS.gen()
+    return sum([((-1) ** (m - 1)) * (y ** m) / m for m in range(1, p_prec)])
+
 def logpp(p, p_prec):
     """returns the (integral) power series for log_p(1+p*z) -- extra p here!"""
     SS = PolynomialRing(QQ, 'y')
     y = SS.gen()
     return sum([((-1) ** (m - 1)) * ((p * y) ** m) / m for m in range(1, p_prec)])
 
+@cached_function
+def logp_gam(p, p_prec):
+    """
+    Returns the (integral) power series log_p(1+z) / log_p(1+p)) where the denominator is computed with some accuracy.
+    """
+    L = logp(p, p_prec)
+    ZZp = Zp(p, 2 * p_prec)
+    loggam = ZZ(ZZp(1+p).log(0))
+    return ps_normalize(L / loggam, p, p_prec)
+
+@cached_function
 def logpp_gam(p, p_prec):
     """returns the (integral) power series log_p(1+p*z)*(1/log_p(1+p)) where the denominator is computed with some accuracy"""
     L = logpp(p, p_prec)
     ZZp = Zp(p, 2 * p_prec)
     loggam = ZZ(ZZp(1+p).log(0))
     return ps_normalize(L / loggam, p, p_prec)
+
+@cached_function
+def logp_binom(n, p, p_prec):
+    """returns the (integral) power series (log_p(1+z)/log_p(1+p) choose n)"""
+    #prod=1+0*z
+    if n == 0:
+        return PolynomialRing(QQ, 'y')(1)
+    L = logp_gam(p, p_prec)
+    ans = prod([(L - j) for j in range(n)])
+    #for j in range(0,n):
+    #    prod=prod*(L-j)
+    ans = ans / factorial(n)
+    
+    return ps_normalize(ans.truncate(p_prec+1), p, p_prec) #Do we need the +1?
 
 @cached_function
 def logpp_binom(n, p, p_prec):

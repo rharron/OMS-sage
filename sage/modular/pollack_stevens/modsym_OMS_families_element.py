@@ -2,6 +2,7 @@ from sage.misc.cachefunc import cached_method
 from sage.misc.misc import verbose
 from sage.modular.pollack_stevens.modsym_element import ModularSymbolElement_generic
 from sage.modular.pollack_stevens.coeffmod_OMS_families_element import _add_big_ohs_list#, _padic_val_of_pow_series
+from sage.modular.pollack_stevens.padic_Lfunction import padic_Lfunction_two_variable
 
 class ModSym_OMS_Families_element(ModularSymbolElement_generic):
     """
@@ -76,7 +77,14 @@ class ModSym_OMS_Families_element(ModularSymbolElement_generic):
     #@cached_method
     def Tq_eigenvalue(self, q, p=None, M=None, check=True):
         #TODO: deal with var_prec
+        if self == 0:
+            raise ValueError("0 cannot be an eigenvector")
         qhecke = self.hecke(q)
+        if True:
+            rel = self.parent().linear_relation([self], qhecke)
+            if rel[-1] is None:
+                raise ValueError("not a scalar multiple")
+            return -rel[0][0] / rel[1]
         gens = self.parent().source().gens()
         if p is None:
             p = self.parent().prime()   #CHANGE THIS
@@ -114,3 +122,6 @@ class ModSym_OMS_Families_element(ModularSymbolElement_generic):
             #elif (M is not None and qhecke - aq * self).valuation(p) < M[0]:
                 raise ValueError("not a scalar multiple")
         return aq
+    
+    def padic_lfunction(self, var='T', prec=None):
+        return padic_Lfunction_two_variable(self, var=var, prec=prec)
